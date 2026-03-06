@@ -5,7 +5,7 @@ FROM rust:${RUST_VERSION}-slim-bookworm AS build
 USER root
 
 RUN apt update \
-    && apt install --yes binutils build-essential pkg-config libssl-dev clang lld git protobuf-compiler libz-dev \
+    && apt install --yes binutils build-essential pkg-config libssl-dev clang lld git protobuf-compiler libz-dev python3-dev \
     && rm -rf /var/lib/{apt,dpkg,cache,log}
 
 RUN mkdir /influxdb3
