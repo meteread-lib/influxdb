@@ -23,6 +23,25 @@ To build a specific InfluxDB version:
 docker build --build-arg INFLUXDB_VERSION=v3.0.0 -t influxdb .
 ```
 
+## Build and push to GitHub Container Registry
+
+```bash
+# Login to ghcr.io (use a personal access token with write:packages scope)
+gh auth token | docker login --username $USER --password-stdin ghcr.io
+
+# Create a multi-platform builder (one-time setup)
+docker buildx create --name multiarch --driver docker-container --use
+
+# Build and push
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --tag ghcr.io/meteread-lib/influxdb:main \
+  --push \
+  .
+```
+
+The CI workflow builds and pushes automatically on every push to `main`.
+
 ## Build args
 
 | Arg                | Default | Description                          |
