@@ -2,6 +2,8 @@
 ARG RUST_VERSION=1.92
 FROM rust:${RUST_VERSION}-slim-bookworm AS build
 
+LABEL org.opencontainers.image.source="https://github.com/meteread-lib/influxdb"
+
 USER root
 
 RUN apt update \
@@ -16,19 +18,23 @@ ARG INFLUXDB_VERSION=main
 RUN git clone --depth 1 --branch ${INFLUXDB_VERSION} https://github.com/influxdata/influxdb.git .
 
 # Build WITHOUT jemalloc_replacing_malloc to avoid page size issues on ARM64
+# CARGO_PROFILE_RELEASE_LTO=thin reduces linker memory usage (default is fat LTO)
+# -j 2 limits parallel codegen units to avoid OOM on ARM64
 RUN \
+    CARGO_PROFILE_RELEASE_LTO=thin \
     cargo build \
       --package=influxdb3 \
       --profile=release \
-      --no-default-features \
-      --features="aws,gcp,azure" && \
+      --no-default-features && \
     objcopy --compress-debug-sections target/release/influxdb3 && \
     cp target/release/influxdb3 /root/influxdb3
 
 FROM debian:bookworm-slim
 
+LABEL org.opencontainers.image.source="https://github.com/meteread-lib/influxdb"
+
 RUN apt update \
-    && apt install --yes ca-certificates libssl3 --no-install-recommends \
+    && apt install --yes ca-certificates libssl3 libpython3.11 python3-pip python3-venv --no-install-recommends \
     && rm -rf /var/lib/{apt,dpkg,cache,log} \
     && groupadd --gid 1500 influxdb3 \
     && useradd --uid 1500 --gid influxdb3 --shell /bin/bash --create-home influxdb3

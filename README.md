@@ -25,14 +25,18 @@ docker build --build-arg INFLUXDB_VERSION=v3.0.0 -t influxdb .
 
 ## Build and push to GitHub Container Registry
 
-```bash
-# Login to ghcr.io (use a personal access token with write:packages scope)
-gh auth token | docker login --username $USER --password-stdin ghcr.io
+Login first (use a personal access token with `write:packages` scope):
 
-# Create a multi-platform builder (one-time setup)
+```bash
+gh auth token | docker login --username $USER --password-stdin ghcr.io
+```
+
+### QEMU emulation (one machine)
+
+```bash
+# One-time setup
 docker buildx create --name multiarch --driver docker-container --use
 
-# Build and push
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   --tag ghcr.io/meteread-lib/influxdb:main \
@@ -40,7 +44,45 @@ docker buildx build \
   .
 ```
 
-The CI workflow builds and pushes automatically on every push to `main`.
+### Remote nodes (native, faster for Rust builds)
+
+Builds each architecture natively: amd64 locally, arm64 on a remote machine.
+Buildx manages buildkitd containers automatically via Docker context — no manual setup on the remote host needed.
+
+**One-time setup:**
+
+```bash
+# Create a Docker context for the remote arm64 host
+docker context create raspberrypi --docker "host=ssh://user@arm64-host"
+
+# Local amd64 node
+docker buildx create \
+  --name multiarch-remote \
+  --driver docker-container \
+  --platform linux/amd64 \
+  --use
+
+# Append remote arm64 node via Docker context
+docker buildx create \
+  --name multiarch-remote \
+  --append \
+  --driver docker-container \
+  --platform linux/arm64 \
+  raspberrypi
+
+docker buildx inspect --bootstrap --builder multiarch-remote
+```
+
+**Build and push:**
+
+```bash
+docker buildx build \
+  --builder multiarch-remote \
+  --platform linux/amd64,linux/arm64 \
+  --tag ghcr.io/meteread-lib/influxdb:main \
+  --push \
+  .
+```
 
 ## Build args
 
